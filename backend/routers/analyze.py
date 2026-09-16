@@ -86,3 +86,29 @@ def get_past_analyses(
             suggestions=json.loads(a.suggestions)
          ))
     return results
+
+@router.delete("/clear")
+def clear_all_analyses(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    db.query(models.ResumeAnalysis).filter(models.ResumeAnalysis.owner_id == current_user.id).delete()
+    db.commit()
+    return {"message": "All analyses cleared successfully"}
+
+@router.delete("/{analysis_id}")
+def delete_single_analysis(
+    analysis_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    db_analysis = db.query(models.ResumeAnalysis).filter(
+        models.ResumeAnalysis.id == analysis_id,
+        models.ResumeAnalysis.owner_id == current_user.id
+    ).first()
+    if not db_analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    db.delete(db_analysis)
+    db.commit()
+    return {"message": "Analysis deleted successfully"}

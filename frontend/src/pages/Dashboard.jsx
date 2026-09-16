@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { UploadCloud, FileText, CheckCircle, AlertCircle, TrendingUp, LogOut } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, AlertCircle, TrendingUp, LogOut, Trash2 } from 'lucide-react';
 
 export default function Dashboard() {
     const [analyses, setAnalyses] = useState([]);
@@ -10,6 +10,8 @@ export default function Dashboard() {
     const [jobDescription, setJobDescription] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [activeAnalysis, setActiveAnalysis] = useState(null);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -53,6 +55,31 @@ export default function Dashboard() {
         navigate('/login');
     };
 
+    const handleDeleteOne = async (id) => {
+        try {
+            await api.delete(`/analyze/${id}`);
+            const updated = analyses.filter(item => item.id !== id);
+            setAnalyses(updated);
+            if (activeAnalysis?.id === id) {
+                setActiveAnalysis(updated.length > 0 ? updated[0] : null);
+            }
+            setDeletingId(null);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleClearAll = async () => {
+        try {
+            await api.delete('/analyze/clear');
+            setAnalyses([]);
+            setActiveAnalysis(null);
+            setShowClearConfirm(false);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     return (
         <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 relative bg-stark">
             {/* Sidebar */}
@@ -92,7 +119,35 @@ export default function Dashboard() {
                 </form>
 
                 <div className="w-full flex-grow overflow-y-auto pr-2 custom-scrollbar">
-                    <h3 className="font-semibold text-xs uppercase tracking-widest mb-4 opacity-50">History</h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-semibold text-xs uppercase tracking-widest opacity-50">History</h3>
+                        {analyses.length > 0 && (
+                            showClearConfirm ? (
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleClearAll}
+                                        className="text-xs font-bold uppercase tracking-widest text-accent hover:underline cursor-pointer"
+                                    >
+                                        Yes, Clear
+                                    </button>
+                                    <span className="text-xs opacity-30">/</span>
+                                    <button
+                                        onClick={() => setShowClearConfirm(false)}
+                                        className="text-xs font-bold uppercase tracking-widest text-obsidian/60 hover:underline cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowClearConfirm(true)}
+                                    className="text-xs font-bold uppercase tracking-widest text-accent hover:underline cursor-pointer"
+                                >
+                                    Clear All
+                                </button>
+                            )
+                        )}
+                    </div>
                     <div className="space-y-3">
                         {analyses.map(item => (
                             <div
@@ -104,9 +159,44 @@ export default function Dashboard() {
                                     <span className="font-medium text-sm truncate max-w-[150px]">{item.filename}</span>
                                     <span className="text-lg font-heading font-bold">{Math.round(item.match_score)}</span>
                                 </div>
-                                <span className="text-xs opacity-50 font-medium">
-                                    {new Date(item.created_at).toLocaleDateString()}
-                                </span>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs opacity-50 font-medium">
+                                        {new Date(item.created_at).toLocaleDateString()}
+                                    </span>
+                                    {deletingId === item.id ? (
+                                        <div className="flex gap-2 text-xs">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteOne(item.id);
+                                                }}
+                                                className="text-accent underline cursor-pointer font-semibold animate-pulse"
+                                            >
+                                                Confirm
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeletingId(null);
+                                                }}
+                                                className="text-obsidian/60 underline cursor-pointer"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setDeletingId(item.id);
+                                            }}
+                                            className="text-obsidian/45 hover:text-accent p-1 transition-colors rounded hover:bg-obsidian/5 cursor-pointer"
+                                            title="Delete analysis"
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                         {analyses.length === 0 && (

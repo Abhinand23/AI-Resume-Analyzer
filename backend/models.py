@@ -9,6 +9,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    auth_provider = Column(String, default="local")
 
     analyses = relationship("ResumeAnalysis", back_populates="owner")
 

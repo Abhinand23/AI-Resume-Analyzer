@@ -6,6 +6,37 @@ import schemas, database, models, auth
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+import os
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_ID")
+
+@router.post("/google", response_model=schemas.Token)
+def login_with_google(token_req: schemas.OAuthToken, db: Session = Depends(database.get_db)):
+    try:
+        if GOOGLE_CLIENT_ID == "YOUR_GOOGLE_CLIENT_ID" and token_req.credential == "mock_dev_credential":
+            email = "devuser@example.com"
+        else:
+            idinfo = id_token.verify_oauth2_token(token_req.credential, google_requests.Request(), GOOGLE_CLIENT_ID)
+            email = idinfo['email']
+
+        user = auth.get_user_by_email(db, email=email)
+        if not user:
+            new_user = models.User(email=email, hashed_password=None, auth_provider="google")
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            user = new_user
+
+        access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = auth.create_access_token(
+            data={"sub": user.email}, expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid Google credential token")
+
 @router.post("/register", response_model=schemas.User)
 def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     db_user = auth.get_user_by_email(db, email=user.email)

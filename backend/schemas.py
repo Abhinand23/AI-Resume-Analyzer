@@ -21,6 +21,9 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
 
+class OAuthToken(BaseModel):
+    credential: str
+
 class ResumeAnalysisBase(BaseModel):
     filename: str
     job_description: Optional[str] = None
